@@ -1,0 +1,30 @@
+{
+  "app": {
+      "appId": "d2oi69khus6be3",
+      "appArn": "arn:aws:amplify:ap-northeast-1:254337601349:apps/d2oi69khus6be3",
+      "name": "AmplifyApp",
+      "tags": {},
+      "repository": "https://github.com/gray-1to/chatbites",
+      "platform": "WEB",
+      "createTime": "2024-09-22T23:46:13.992000+09:00",
+      "updateTime": "2024-09-23T02:11:01.498000+09:00",
+      "iamServiceRoleArn": "arn:aws:iam::254337601349:role/CdkStack-AmplifyRole7A8FD9BC-Lg1fzLNCMFMN",
+      "defaultDomain": "d2oi69khus6be3.amplifyapp.com",
+      "enableBranchAutoBuild": false,
+      "enableBranchAutoDeletion": false,
+      "enableBasicAuth": false,
+      "customRules": [
+          {
+              "source": "/<*>",
+              "target": "/index.html",
+              "status": "404-200"
+          }
+      ],
+      "buildSpec": "version: 1\nfrontend:\n  phases:\n    preBuild:\n      commands:\n        - cd chatbites && npm ci\n    build:\n      commands:\n        - cd chatbites && npm run build\n  artifacts:\n    baseDirectory: chatbites/out\n    files:\n      - \"**/*\"\n  cache:\n    paths:\n      - chatbites/node_modules/**/*\n",
+      "customHeaders": "",
+      "enableAutoBranchCreation": false,
+      "repositoryCloneMethod": "TOKEN",
+      "cacheConfig": {
+          "type": "AMPLIFY_MANAGED"
+      }
+  }
