@@ -1,0 +1,75 @@
+openapi: 3.0.3
+info:
+  title: ChatBites API定義
+  version: 0.0.1
+tags:
+  - name: talk
+    description: LLMとの対話機能
+  - name: user
+    description: ログイン関連機能
+  - name: history
+    description: 対話履歴機能
+paths:
+  /talk/generate:
+    post:
+      tags:
+        - talk
+      summary: 応答生成(＋対話履歴保存)
+      requestBody:
+        content:
+            application/json:
+              schema: 
+                type: object
+                properties:
+                  userId:
+                    type: string
+                  talk:
+                    type: array
+                    items: 
+                      type: object
+                      properties:
+                        role:
+                          type: string
+                        content:
+                          type: string
+      responses:
+        200:
+          description: LLMでの応答生成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response: 
+                    type: string
+  /history/list:
+    get: 
+      tags:
+        - history
+      summary: 対話履歴一覧の取得
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        200:
+          description: 対話履歴一覧取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    historyId:
+                      type: string
+                    initContent:
+                      type: string
+                    updatedAt:
+                      type: string
+
+
