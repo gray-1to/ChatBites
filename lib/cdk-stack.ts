@@ -9,6 +9,13 @@ import * as path from "path";
 import * as dotenv from "dotenv";
 import * as codebuild from "aws-cdk-lib/aws-codebuild";
 import * as iam from "aws-cdk-lib/aws-iam";
+import { LayerVersion, Code, Runtime } from "aws-cdk-lib/aws-lambda";
+import {
+  PolicyStatement,
+  Effect,
+  Role,
+  ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
 
 interface HostingStackProps extends StackProps {
   readonly environmentVariables?: { [name: string]: string }
@@ -75,6 +82,23 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     const mainBranch = amplifyApp.addBranch('main');
 
     // Lambda Function
+    // for Bedrock
+    const layerVersion = new LayerVersion(this, "Boto3LayerVersion", {
+      code: Code.fromAsset(path.join(__dirname, "../lambda/layers/boto3-1.35.25.zip")),
+      compatibleRuntimes: [Runtime.PYTHON_3_11],
+    });
+
+    const bedrockAccessPolicy = new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ["bedrock:InvokeModel"], // See: https://docs.aws.amazon.com/ja_jp/service-authorization/latest/reference/list_amazonbedrock.html
+      resources: ["*"],
+    });
+
+    const bedrockAccessRole = new Role(this, "BedrockAccessRole", {
+      assumedBy: new ServicePrincipal("lambda.amazonaws.com"),
+    });
+    bedrockAccessRole.addToPolicy(bedrockAccessPolicy);
+
     const talkGenerateLambdaFunction = new lambda.Function(
       this,
       "TalkGenerateLambdaFunction",
@@ -82,6 +106,9 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         runtime: lambda.Runtime.PYTHON_3_11, // Lambda runtime
         handler: "generate.lambda_handler",
         code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/talk")), // Lambda関数のコードへのパス
+        layers: [layerVersion], // for boto3
+        role: bedrockAccessRole, // for bedrock
+        timeout: cdk.Duration.seconds(30),
       }
     );
     const historyListLambdaFunction = new lambda.Function(
@@ -108,7 +135,19 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     const listHistory = history.addResource("list");
     listHistory.addMethod(
       "GET",
-      new apigateway.LambdaIntegration(historyListLambdaFunction)
+      new apigateway.LambdaIntegration(historyListLambdaFunction),
+      {
+        methodResponses: [
+          {
+            statusCode: '200',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': false,
+              'method.response.header.Access-Control-Allow-Headers': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+            },
+          },
+        ],
+      }
     ); // GET /history/list -> HistoryListLambdaFunction
 
     // Outputs
