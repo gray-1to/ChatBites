@@ -1,37 +1,44 @@
 "use client"
 import { useEffect, useState } from "react"
 
+// 型定義
+type History = {
+  initContent: { [key: string]: string }[]; // 任意のキーで、文字列のコンテンツを持つ配列
+  updatedAt: string; // 更新日時
+};
 
 export default function HistoryList() {
-  const [histories, setHistories] = useState([])
+  const [histories, setHistories] = useState<History[]>([]); // History型の配列
 
   useEffect(() => {
     const getHistories = async () => {
-      const url = process.env.GATEWAY_URL ?? "a"
-      // const res = await fetch(url+"history/list")
-      console.log(url+"history/list")
-      const res = await fetch("https://obhady3gdk.execute-api.ap-northeast-1.amazonaws.com/prod/history/list")
+      const url = process.env.NEXT_PUBLIC_GATEWAY_URL; // 環境変数の修正
+      if (typeof url === "undefined") {
+        return;
+      }
+      const res = await fetch(url + "history/list");
 
       if (res.ok) {
-        const data = await res.json() // JSONデータとしてレスポンスをパース
-        setHistories(data) // パースされたデータをステートにセット
-        console.log(data)
+        const data: History[] = await res.json(); // JSONデータをHistory型配列としてパース
+        setHistories(data); // パースされたデータをステートにセット
+        console.log(data);
       } else {
-        console.error('Failed to fetch histories:', res.status)
+        console.error("Failed to fetch histories:", res.status);
       }
-    }
+    };
 
-    getHistories()
-  }, [])
+    getHistories();
+  }, []);
 
   return (
     <ul>
       {histories.map((history, index) => {
-          return(
-            <li key={index}>{history.initContent[1]["content"]} {history.updatedAt}</li>
-          )
-        })
-      }
+        return (
+          <li key={index}>
+            {history.initContent[1]?.content} {history.updatedAt}
+          </li>
+        );
+      })}
     </ul>
-  )
+  );
 }
