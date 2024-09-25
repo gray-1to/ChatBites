@@ -65,7 +65,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
               commands: ["cd chatbites && npm ci"],
             },
             build: {
-              commands: ["npm run build"],
+              commands: ["npm run build", "echo GITHUB_TOKEN=$GITHUB_TOKEN >> .env"],
             },
           },
           artifacts: {
@@ -83,8 +83,13 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
 
     // Lambda Function
     // for Bedrock
-    const layerVersion = new LayerVersion(this, "Boto3LayerVersion", {
+    const boto3LayerVersion = new LayerVersion(this, "Boto3LayerVersion", {
       code: Code.fromAsset(path.join(__dirname, "../lambda/layers/boto3-1.35.25.zip")),
+      compatibleRuntimes: [Runtime.PYTHON_3_11],
+    });
+    // for request
+    const requestsLayerVersion = new LayerVersion(this, "RequestsLayerVersion", {
+      code: Code.fromAsset(path.join(__dirname, "../lambda/layers/requests-2.32.3.zip")),
       compatibleRuntimes: [Runtime.PYTHON_3_11],
     });
 
@@ -106,9 +111,25 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         runtime: lambda.Runtime.PYTHON_3_11, // Lambda runtime
         handler: "generate.lambda_handler",
         code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/talk")), // Lambda関数のコードへのパス
-        layers: [layerVersion], // for boto3
+        layers: [boto3LayerVersion], // for boto3
         role: bedrockAccessRole, // for bedrock
         timeout: cdk.Duration.seconds(30),
+      }
+    );
+    const talkSearchLambdaFunction = new lambda.Function(
+      this,
+      "TalkSearchLambdaFunction",
+      {
+        runtime: lambda.Runtime.PYTHON_3_11, // Lambda runtime
+        handler: "search.lambda_handler",
+        code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/talk")), // Lambda関数のコードへのパス
+        layers: [boto3LayerVersion, requestsLayerVersion], // for boto3, requests
+        role: bedrockAccessRole, // for bedrock
+        timeout: cdk.Duration.seconds(30),
+        environment: {
+          GOOGLE_MAP_API_KEY: process.env.GOOGLE_MAP_API_KEY ?? '',
+          REGION: cdk.Stack.of(this).region,
+        },
       }
     );
     const historyListLambdaFunction = new lambda.Function(
@@ -130,6 +151,32 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     const talk = api.root.addResource("talk");
     const generateTalk = talk.addResource("generate");
     generateTalk.addMethod("POST"); // POST /talk/generate -> TalkGenerateLambdaFunction
+    
+    const talkSearch = talk.addResource("search");
+    talkSearch.addMethod(
+      "POST",
+      new apigateway.LambdaIntegration(talkSearchLambdaFunction),
+      {
+        methodResponses: [
+          {
+            statusCode: '200',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Headers': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+            },
+          },
+          {
+            statusCode: '400',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Headers': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+            },
+          },
+        ],
+      }
+    );
 
     const history = api.root.addResource("history");
     const listHistory = history.addResource("list");
@@ -141,11 +188,19 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
           {
             statusCode: '200',
             responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': false,
+              'method.response.header.Access-Control-Allow-Origin': true,
               'method.response.header.Access-Control-Allow-Headers': true,
               'method.response.header.Access-Control-Allow-Methods': true,
             },
           },
+          {
+            statusCode: '400',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Headers': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+            },
+          }
         ],
       }
     ); // GET /history/list -> HistoryListLambdaFunction
