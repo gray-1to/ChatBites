@@ -116,7 +116,10 @@ def lambda_handler(event, context):
     places = res.json()["places"]
     names = [result["displayName"]["text"] for result in places[:3]]
 
-    messages.append({"role": "assistant", "content": ", ".join(names)+"が検索にヒットしました。これらの店舗はどうでしょうか。"})
+    messages.extend([
+        {"role": "user", "content": "これまでの情報から店舗を調べて。"},
+        {"role": "assistant", "content": ", ".join(names)+"が検索にヒットしました。これらの店舗はどうでしょうか。"}
+    ])
 
     # レスポンスを返す
     return {
