@@ -80,6 +80,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
       role: amplifyRole,
     });
     const mainBranch = amplifyApp.addBranch('main');
+    const devBranch = amplifyApp.addBranch('dev');
 
     // Lambda Function
     // for Bedrock
@@ -209,6 +210,11 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, "AmplifyAppUrl", {
       value: `https://${mainBranch.branchName}.${amplifyApp.defaultDomain}`,
       description: "The Amplify app URL",
+    });
+
+    new cdk.CfnOutput(this, "DevAmplifyAppUrl", {
+      value: `https://${devBranch.branchName}.${amplifyApp.defaultDomain}`,
+      description: "devブランチのAmplifyアプリURL",
     });
 
     new cdk.CfnOutput(this, "ApiGatewayUrl", {
