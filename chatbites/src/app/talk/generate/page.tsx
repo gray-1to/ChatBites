@@ -1,5 +1,10 @@
 "use client"
 import { useState, ChangeEvent } from "react"
+import { withAuthenticator } from "@aws-amplify/ui-react";
+import {Amplify} from 'aws-amplify'
+import awsconfig from '../../../../aws-exports'; // aws-exports.jsへのパスを指定
+Amplify.configure(awsconfig);
+
 
 // 型定義
 type MessageContent = {
@@ -11,8 +16,7 @@ type Message = {
   role: string;
   content: string | MessageContent[];
 };
-
-export default function HistoryList() {
+function HistoryList() {
   // メッセージの型を定義
   const initMessages = [
     {role: "user", content: "飲食店を探している。良い場所を教えて。"},
@@ -121,3 +125,5 @@ export default function HistoryList() {
     </div>
   );
 }
+
+export default withAuthenticator(HistoryList)

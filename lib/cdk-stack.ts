@@ -16,6 +16,7 @@ import {
   Role,
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 
 interface HostingStackProps extends StackProps {
   readonly environmentVariables?: { [name: string]: string }
@@ -81,6 +82,30 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     });
     const mainBranch = amplifyApp.addBranch('main');
     const devBranch = amplifyApp.addBranch('dev');
+
+    // Cognito User Pool の作成
+    const userPool = new cognito.UserPool(this, 'MyUserPool', {
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: false,
+        },
+      },
+    });
+  
+    // Cognito User Pool Client
+    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
+      userPool,
+      generateSecret: false,
+    });
+
+    // Amplify に Cognito を統合
+    amplifyApp.addEnvironment('COGNITO_USER_POOL_ID', userPool.userPoolId);
+    amplifyApp.addEnvironment('NEXT_PUBLIC_COGNITO_CLIENT_ID', userPoolClient.userPoolClientId);
+
 
     // Lambda Function
     // for Bedrock
