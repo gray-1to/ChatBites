@@ -103,7 +103,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     });
 
     // Amplify に Cognito を統合
-    amplifyApp.addEnvironment('COGNITO_USER_POOL_ID', userPool.userPoolId);
+    amplifyApp.addEnvironment('NEXT_PUBLIC_COGNITO_USER_POOL_ID', userPool.userPoolId);
     amplifyApp.addEnvironment('NEXT_PUBLIC_COGNITO_CLIENT_ID', userPoolClient.userPoolClientId);
 
 
