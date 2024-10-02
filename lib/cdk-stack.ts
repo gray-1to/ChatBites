@@ -17,6 +17,7 @@ import {
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
 import * as cognito from 'aws-cdk-lib/aws-cognito';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 interface HostingStackProps extends StackProps {
   readonly environmentVariables?: { [name: string]: string }
@@ -106,6 +107,37 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     amplifyApp.addEnvironment('NEXT_PUBLIC_COGNITO_USER_POOL_ID', userPool.userPoolId);
     amplifyApp.addEnvironment('NEXT_PUBLIC_COGNITO_CLIENT_ID', userPoolClient.userPoolClientId);
 
+    const execTable = new dynamodb.Table(this, 'ExecTable', { 
+      tableName: "exec-table", // テーブル名の定義
+      partitionKey: { //パーティションキーの定義
+        name: 'userId',
+        type: dynamodb.AttributeType.STRING, // typeはあとNumberとbinary
+      },
+      sortKey: { // ソートキーの定義
+        name: 'createdAt',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,  // オンデマンド請求
+      pointInTimeRecovery: true, // PITRを有効化
+      timeToLiveAttribute: 'expired', // TTLの設定
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // cdk destroyでDB削除可
+    });
+
+    const historyTable = new dynamodb.Table(this, 'HistoryTable', { 
+      tableName: "history-table", // テーブル名の定義
+      partitionKey: { //パーティションキーの定義
+        name: 'userId',
+        type: dynamodb.AttributeType.STRING, // typeはあとNumberとbinary
+      },
+      sortKey: { // ソートキーの定義
+        name: 'createdAt',
+        type: dynamodb.AttributeType.NUMBER,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,  // オンデマンド請求
+      pointInTimeRecovery: true, // PITRを有効化
+      timeToLiveAttribute: 'expired', // TTLの設定
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // cdk destroyでDB削除可
+    });
 
     // Lambda Function
     // for Bedrock
@@ -142,6 +174,27 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         timeout: cdk.Duration.seconds(30),
       }
     );
+
+    talkGenerateLambdaFunction.addEnvironment("DYNAMODB_HISTORY_TABLE_NAME", historyTable.tableName)
+    talkGenerateLambdaFunction.addEnvironment("DYNAMODB_EXEC_TABLE_NAME", execTable.tableName)
+    talkGenerateLambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:ConditionCheckItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+        ],
+        resources: [historyTable.tableArn, execTable.tableArn],
+      }),
+    )
+
     const talkSearchLambdaFunction = new lambda.Function(
       this,
       "TalkSearchLambdaFunction",
@@ -167,6 +220,25 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         code: lambda.Code.fromAsset(path.join(__dirname, "../lambda/history")), // Lambda関数のコードへのパス
       }
     );
+
+    historyListLambdaFunction.addEnvironment("DYNAMODB_HISTORY_TABLE_NAME", historyTable.tableName)
+    historyListLambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:ConditionCheckItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+        ],
+        resources: [historyTable.tableArn],
+      }),
+    )
 
     // API Gateway
     const api = new apigateway.LambdaRestApi(this, "MyApi", {
