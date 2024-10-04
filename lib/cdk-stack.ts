@@ -18,6 +18,7 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from "aws-cdk-lib/aws-s3"
 
 interface HostingStackProps extends StackProps {
   readonly environmentVariables?: { [name: string]: string }
@@ -124,7 +125,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     });
 
     const historyTable = new dynamodb.Table(this, 'HistoryTable', { 
-      tableName: "history-table", // テーブル名の定義
+      tableName: "history-table1", // テーブル名の定義
       partitionKey: { //パーティションキーの定義
         name: 'userId',
         type: dynamodb.AttributeType.STRING, // typeはあとNumberとbinary
@@ -138,6 +139,18 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
       timeToLiveAttribute: 'expired', // TTLの設定
       removalPolicy: cdk.RemovalPolicy.DESTROY, // cdk destroyでDB削除可
     });
+
+    const dataSourceS3Bucket = new s3.Bucket(
+      this,
+      "SlackKnowledgeBaseStorageBucket",
+      {
+        bucketName: `history-storage`,
+        versioned: true,
+        encryption: s3.BucketEncryption.S3_MANAGED,
+        removalPolicy: cdk.RemovalPolicy.DESTROY, // 本番環境ではRETAINにする
+        autoDeleteObjects: true, // 本番環境ではfalseにする
+      },
+    );
 
     // Lambda Function
     // for Bedrock
@@ -177,6 +190,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
 
     talkGenerateLambdaFunction.addEnvironment("DYNAMODB_HISTORY_TABLE_NAME", historyTable.tableName)
     talkGenerateLambdaFunction.addEnvironment("DYNAMODB_EXEC_TABLE_NAME", execTable.tableName)
+    talkGenerateLambdaFunction.addEnvironment("DYNAMODB_HISTORY_BUCKET_NAME", dataSourceS3Bucket.bucketName)
     talkGenerateLambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -194,6 +208,15 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         resources: [historyTable.tableArn, execTable.tableArn],
       }),
     )
+    talkGenerateLambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject", "s3:ListBucket", "s3:DeleteObject"],
+        resources: [
+          dataSourceS3Bucket.bucketArn,
+          `${dataSourceS3Bucket.bucketArn}/*`,
+        ],
+      }),
+    );
 
     const talkSearchLambdaFunction = new lambda.Function(
       this,
@@ -206,11 +229,40 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
         role: bedrockAccessRole, // for bedrock
         timeout: cdk.Duration.seconds(30),
         environment: {
-          GOOGLE_MAP_API_KEY: process.env.GOOGLE_MAP_API_KEY ?? '',
+          GOOGLE_MAP_API_KEY: process.env.GOOGLE_MAPS_API_KEY ?? '',
           REGION: cdk.Stack.of(this).region,
+          DYNAMODB_HISTORY_TABLE_NAME: historyTable.tableName,
+          DYNAMODB_EXEC_TABLE_NAME: execTable.tableName
         },
       }
     );
+    talkSearchLambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:ConditionCheckItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+        ],
+        resources: [historyTable.tableArn, execTable.tableArn],
+      }),
+    )
+    talkSearchLambdaFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["s3:PutObject", "s3:ListBucket", "s3:DeleteObject"],
+        resources: [
+          dataSourceS3Bucket.bucketArn,
+          `${dataSourceS3Bucket.bucketArn}/*`,
+        ],
+      }),
+    );
+
     const historyListLambdaFunction = new lambda.Function(
       this,
       "HistoryListLambdaFunction",

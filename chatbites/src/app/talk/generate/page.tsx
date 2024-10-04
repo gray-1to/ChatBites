@@ -1,7 +1,8 @@
 "use client"
 import { useState, ChangeEvent } from "react"
 import { withAuthenticator } from "@aws-amplify/ui-react";
-import {Amplify} from 'aws-amplify'
+import { Amplify } from 'aws-amplify'
+import { getCurrentUser } from "aws-amplify/auth";
 import awsconfig from '../../../../aws-exports'; // aws-exports.jsへのパスを指定
 Amplify.configure(awsconfig);
 
@@ -26,12 +27,25 @@ function HistoryList() {
   const [input, setInput] = useState<string>("");
 
   const handleMessageSubmit = async () => {
+    // ログインしているユーザーのIDを取得
+    getCurrentUser()
+      .then(user => {
+        console.log("userId", user.userId)
+        sendMessageSubmit(user.userId)
+      })
+      .catch(error => {
+        console.error("Failed to get user:", error);
+      });
+  }
+  
+  const sendMessageSubmit = async (userId: string) => {
+
     const url = process.env.NEXT_PUBLIC_GATEWAY_URL;
     if (typeof url === "undefined") {
       return;
     }
 
-    const body = JSON.stringify({ userId: "John", messages: messages.concat([{ role: "user", content: input }]) });
+    const body = JSON.stringify({ userId: userId, messages: messages.concat([{ role: "user", content: input }]) });
     console.log("request body", body);
     
     const res = await fetch(url + "talk/generate", {
@@ -54,12 +68,24 @@ function HistoryList() {
   };
 
   const handleSearch = async () => {
+    // ログインしているユーザーのIDを取得
+    getCurrentUser()
+      .then(user => {
+        console.log("userId", user.userId)
+        sendSearch(user.userId)
+      })
+      .catch(error => {
+        console.error("Failed to get user:", error);
+      });
+  }
+
+  const sendSearch = async (userId: string) => {
     const url = process.env.NEXT_PUBLIC_GATEWAY_URL;
     if (typeof url === "undefined") {
       return;
     }
 
-    const body = JSON.stringify({ userId: "John", messages: messages });
+    const body = JSON.stringify({ userId: userId, messages: messages });
     console.log("request body", body);
     
     const res = await fetch(url + "talk/search", {
