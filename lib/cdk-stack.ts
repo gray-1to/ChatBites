@@ -232,6 +232,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
           GOOGLE_MAP_API_KEY: process.env.GOOGLE_MAPS_API_KEY ?? '',
           REGION: cdk.Stack.of(this).region,
           DYNAMODB_HISTORY_TABLE_NAME: historyTable.tableName,
+          DYNAMODB_HISTORY_BUCKET_NAME: dataSourceS3Bucket.bucketName,
           DYNAMODB_EXEC_TABLE_NAME: execTable.tableName
         },
       }

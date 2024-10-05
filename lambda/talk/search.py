@@ -6,12 +6,14 @@ import time
 import os
 import requests
 import re
+from concurrent.futures import ThreadPoolExecutor
+
 
 EXEC_UPPER_LIMIT = 10000
 dynamodb = boto3.client("dynamodb")
 s3 = boto3.client("s3")
 GOOGLE_MAP_API_KEY = os.environ["GOOGLE_MAP_API_KEY"]
-
+RECOMMEND_RESTAURANT_NUM = 5
 
 def init_history(userId):
     id = str(uuid.uuid4())
@@ -152,6 +154,8 @@ def get_restaurants(lat, lon, food):
             "body": json.dumps({"message": "Error in getting restaurants"}),
         }
     restaurants = res.json()["places"]
+    restaurants = list(filter(lambda restaurant: restaurant.get('currentOpeningHours').get('openNow') if restaurant.get('currentOpeningHours') else False, restaurants))
+    print("restaurant num", len(restaurants))
     return restaurants
 
 
@@ -179,6 +183,7 @@ def get_condition_from_messages(messages):
             各箇条書きの項目は端的に回答してください。
             未指定やわからない項目は回答しないでください。
             条件のみを回答してください。
+            条件がない場合はなしと回答してください。
             """,
         }
     ]
@@ -214,10 +219,7 @@ def get_condition_from_messages(messages):
     print("condition: ", output)
     return output
 
-
-def rerank(restaurants: list, restaurant_condition: str, messages):
-    # 飲食店を条件に合わせてスコアリングし並び替える
-
+def ask_llm(restaurant_info, needs):
     # bedrock
     bedrock_runtime = boto3.client(
         service_name="bedrock-runtime", region_name="ap-northeast-1"
@@ -225,25 +227,46 @@ def rerank(restaurants: list, restaurant_condition: str, messages):
 
     model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
     system_prompt = """
-    あなたは飲食店紹介AIです。
-    ユーザーの食べたい料理や場所を聞き出してください。
-    必ず日本語で答えてください。
-    """
+# 指示
+飲食店の情報とユーザーのニーズから飲食店のおすすめ度を10段階で評価してください。
+評価は1-10の整数で厳し目に行って下さい。
+10が最もニーズに合い、1が最もおすすめできないという評価です。
+評価の数字だけを答えてください。
+
+
+# 評価基準
+- ユーザーのニーズにあっていると高評価
+- お店の評価が高いと高評価
+
+"""
+    
+    input_format=  """
+# 飲食店の情報
+{restaurant_info}
+
+# ユーザーのニーズ
+{needs}
+
+
+# 出力形式
+評価の数字だけを答えてください。
+"""
+
     max_tokens = 1000
-    search_word_direction = [
+    messages = [
         {
             "role": "user",
-            "content": "これまでの情報から検索ワードを考えてください。検索ワードは<< >>で囲ってください。",
+            "content": input_format.replace("{restaurant_info}", restaurant_info) \
+                                      .replace("{needs}", needs) ,
         }
     ]
 
-    pattern = r"<<(.*?)>>"
     body = json.dumps(
         {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
             "system": system_prompt,
-            "messages": messages + search_word_direction,
+            "messages": messages,
         }
     )
 
@@ -251,6 +274,7 @@ def rerank(restaurants: list, restaurant_condition: str, messages):
     try:
         response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
     except Exception as e:
+        print(e)
         return {
             "statusCode": 400,
             "headers": {
@@ -265,43 +289,43 @@ def rerank(restaurants: list, restaurant_condition: str, messages):
     response_body = response["body"].read().decode("utf-8")
     response_data = json.loads(response_body)
     output = response_data["content"][0]["text"]
-    textQuery = " ".join(re.findall(pattern, output))
-
-    # google map API
-    query = json.dumps({"textQuery": textQuery, "languageCode": "ja"})
-    url = "https://places.googleapis.com/v1/places:searchText"
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": GOOGLE_MAP_API_KEY,
-        "X-Goog-FieldMask": "places.displayName",
-    }
+    print("recommend level: ", output)
     try:
-        res = requests.post(url, headers=headers, data=query)
+        int_output = int(output)
+    except ValueError:
+        int_output = 0
+    return int_output
+
+def rerank(restaurants: list, restaurant_condition: str):
+    # 飲食店を条件に合わせてスコアリングし並び替える
+    restaurant_infos = []
+    for restaurant in restaurants:
+        restaurant_info = f"""
+飲食店名：{restaurant['displayName']['text']}
+属性：{', '.join(restaurant['types'])}
+評価(5が最高)：{restaurant['rating']}
+"""
+        restaurant_infos.append(restaurant_info)
+
+
+    try:
+        print("Invoking LLM chain")
+        with ThreadPoolExecutor() as executor:
+            tasks = list(map(lambda restaurant_info: executor.submit(ask_llm, restaurant_info, restaurant_condition), restaurant_infos))
+            scores = [task.result() for task in tasks]
+        print("LLM chain invoked successfully")
+        print(f"LLM response: {', '.join(str(scores))}")
     except Exception as e:
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in search map"}),
-        }
-    places = res.json()["places"]
-    names = [result["displayName"]["text"] for result in places[:3]]
+        print(f"Error invoking LLM: {str(e)}")
+        raise
 
-    messages.extend(
-        [
-            {"role": "user", "content": "これまでの情報から店舗を調べて。"},
-            {
-                "role": "assistant",
-                "content": ", ".join(names)
-                + "が検索にヒットしました。これらの店舗はどうでしょうか。",
-            },
-        ]
+    restaurant_score_pairs = zip(restaurants, scores)
+    sorted_restaurant_score_pairs = sorted(
+        restaurant_score_pairs, key=lambda pair: (pair[1], float(pair[0]['rating'])), reverse=True
     )
+    top_restaurant_score_pairs = sorted_restaurant_score_pairs[:RECOMMEND_RESTAURANT_NUM]
 
-    return []
+    return top_restaurant_score_pairs
 
 
 def lambda_handler(event, context):
@@ -398,15 +422,14 @@ def lambda_handler(event, context):
     restaurants = get_restaurants(lat, lon, food)
 
     restaurant_condition = get_condition_from_messages(messages)
-    return restaurant_condition
 
-    # reranked_restaurants = rerank(restaurants, restaurant_condition, messages)
+    top_restaurant_score_pairs = rerank(restaurants, restaurant_condition)
 
     restaurants_proposal_message = "以下の店舗をお勧めします。\n" + "\n".join(
-        reranked_restaurants
+        [top_restaurant_score_pair[0]['displayName']['text'] for top_restaurant_score_pair in top_restaurant_score_pairs]
     )
     messages.append({"role": "assistant", "content": restaurants_proposal_message})
-
+    print("answer", restaurants_proposal_message)
     try:
         put_log_to_exec_table(userId, historyId)
     except Exception as e:
