@@ -157,7 +157,62 @@ def get_restaurants(lat, lon, food):
 
 def get_condition_from_messages(messages):
     # 対話からレストランに求める条件をLLMで出力
-    return ""
+    # bedrock
+    bedrock_runtime = boto3.client(
+        service_name="bedrock-runtime", region_name="ap-northeast-1"
+    )
+
+    model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    system_prompt = """
+    あなたは飲食店の検索用AIです。
+    ユーザーが求めているニーズを聞き出します。
+    端的に回答してください。
+    必ず日本語で答えてください。
+    """
+    max_tokens = 1000
+    search_word_direction = [
+        {
+            "role": "user",
+            "content": """
+            これまでの情報から私が飲食店に求めている条件を答えてください。
+            条件を箇条書きで回答してください。
+            各箇条書きの項目は端的に回答してください。
+            未指定やわからない項目は回答しないでください。
+            条件のみを回答してください。
+            """,
+        }
+    ]
+
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": messages + search_word_direction,
+        }
+    )
+
+    # モデルの呼び出し
+    try:
+        response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
+    except Exception as e:
+        print(e)
+        return {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            "body": json.dumps({"message": "Error in invoke model"}),
+        }
+
+    # StreamingBodyを読み取る
+    response_body = response["body"].read().decode("utf-8")
+    response_data = json.loads(response_body)
+    output = response_data["content"][0]["text"]
+    print("condition: ", output)
+    return output
 
 
 def rerank(restaurants: list, restaurant_condition: str, messages):
@@ -343,8 +398,9 @@ def lambda_handler(event, context):
     restaurants = get_restaurants(lat, lon, food)
 
     restaurant_condition = get_condition_from_messages(messages)
+    return restaurant_condition
 
-    reranked_restaurants = rerank(restaurants, restaurant_condition, messages)
+    # reranked_restaurants = rerank(restaurants, restaurant_condition, messages)
 
     restaurants_proposal_message = "以下の店舗をお勧めします。\n" + "\n".join(
         reranked_restaurants
