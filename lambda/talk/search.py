@@ -115,9 +115,44 @@ def get_lat_lon(location):
     return (place["location"]["latitude"], place["location"]["longitude"])
 
 
-def get_restaurants(lat_lon, food):
+def get_restaurants(lat, lon, food):
     # 緯度経度からNearbySearchで近辺の飲食店を取得
-    return []
+    radius = 1500
+    url = "https://places.googleapis.com/v1/places:searchText"
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_MAP_API_KEY,
+        "X-Goog-FieldMask": "*",
+    }
+    query = json.dumps({
+        "textQuery": food,
+        "maxResultCount": 20,
+        "locationBias": {
+            "circle": {
+                "center": {
+                    "latitude": lat,
+                    "longitude": lon
+                },
+                "radius": 1500.0
+            }
+        },
+        "languageCode": "ja"
+    })
+    try:
+        res = requests.post(url, headers=headers, data=query)
+    except Exception as e:
+        print(e)
+        return {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            "body": json.dumps({"message": "Error in getting restaurants"}),
+        }
+    restaurants = res.json()["places"]
+    return restaurants
 
 
 def get_condition_from_messages(messages):
@@ -303,9 +338,9 @@ def lambda_handler(event, context):
             "body": json.dumps({"message": "Exec upper limit"}),
         }
 
-    lat_lon = get_lat_lon(location)
-    print("lat_lon", lat_lon)
-    restaurants = get_restaurants(lat_lon, food)
+    lat, lon = get_lat_lon(location)
+    print("lat_lon", lat, lon)
+    restaurants = get_restaurants(lat, lon, food)
 
     restaurant_condition = get_condition_from_messages(messages)
 
