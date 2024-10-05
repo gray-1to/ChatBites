@@ -4,6 +4,7 @@ import { withAuthenticator } from "@aws-amplify/ui-react";
 import { Amplify } from 'aws-amplify'
 import { getCurrentUser } from "aws-amplify/auth";
 import awsconfig from '../../../../aws-exports'; // aws-exports.jsへのパスを指定
+import MapModal from '../../components/MapModal';
 Amplify.configure(awsconfig);
 
 
@@ -17,14 +18,39 @@ type Message = {
   role: string;
   content: string | MessageContent[];
 };
-function HistoryList() {
+
+type LatLng = {
+  lat: number,
+  lng: number
+}
+
+type SearchResponse = {
+  messages: Message[];
+  recommendations: Recommendation[];
+  userLocation: LatLng
+}
+
+type Recommendation = {
+  displayName: string;
+  googleMapsUri: string;
+  location: LatLng
+}
+
+function TalkGenerate() {
   // メッセージの型を定義
   const initMessages = [
-    {role: "user", content: "飲食店を探している。良い場所を教えて。"},
-    {role: "assistant", content: "食べたい料理や人数、場所を教えてください。"}
-  ]
+    { role: "user", content: "飲食店を探している。良い場所を教えて。" },
+    { role: "assistant", content: "場所や食べたい料理、人数や予算を教えてください。" }
+  ];
+
   const [messages, setMessages] = useState<Message[]>(initMessages);
   const [input, setInput] = useState<string>("");
+  const [location, setLocation] = useState<string>("");  // 追加: 場所入力用
+  const [food, setFood] = useState<string>("");          // 追加: 食べ物入力用
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [recommendationIndex, setRecommendationIndex] = useState<number | null>(null)
+  const [recommendations, setRecommendations] = useState<{[name: string]: Recommendation[]}>({})
+  const [locationLatLng, setLocationLatLng] = useState<LatLng>({lat: 0, lng: 0})
 
   const handleMessageSubmit = async () => {
     // ログインしているユーザーのIDを取得
@@ -37,17 +63,21 @@ function HistoryList() {
         console.error("Failed to get user:", error);
       });
   }
-  
-  const sendMessageSubmit = async (userId: string) => {
 
+  const sendMessageSubmit = async (userId: string) => {
     const url = process.env.NEXT_PUBLIC_GATEWAY_URL;
     if (typeof url === "undefined") {
       return;
     }
 
-    const body = JSON.stringify({ userId: userId, messages: messages.concat([{ role: "user", content: input }]) });
+    const body = JSON.stringify({ 
+      userId: userId, 
+      messages: messages.concat([{ role: "user", content: input }]),
+      location: location,  // 追加: 場所データを含む
+      food: food           // 追加: 食べ物データを含む
+    });
     console.log("request body", body);
-    
+
     const res = await fetch(url + "talk/generate", {
       method: "POST",
       headers: {
@@ -60,8 +90,7 @@ function HistoryList() {
     if (res.ok) {
       const data: Message[] = await res.json();
       setMessages(data);
-      console.log(data);
-      setInput("")
+      setInput("");
     } else {
       console.error("Failed to fetch histories:", res.status);
     }
@@ -85,9 +114,14 @@ function HistoryList() {
       return;
     }
 
-    const body = JSON.stringify({ userId: userId, messages: messages });
+    const body = JSON.stringify({ 
+      userId: userId, 
+      messages: messages,
+      location: location,  // 追加: 場所データを含む
+      food: food           // 追加: 食べ物データを含む
+    });
     console.log("request body", body);
-    
+
     const res = await fetch(url + "talk/search", {
       method: "POST",
       headers: {
@@ -96,60 +130,110 @@ function HistoryList() {
       body: body,
     });
 
-    console.log("response", res);
+    const data: SearchResponse = await res.json();
+    console.log("response json", data);
     if (res.ok) {
-      const data: Message[] = await res.json();
-      setMessages(data);
-      console.log(data);
-      setInput("")
+      setMessages(data["messages"]);
+      setInput("");
+      setRecommendations(pre => {
+        const message_index = data["messages"].length - 1
+        return{
+        ...pre,
+        [message_index.toString()]: data["recommendations"]
+      }});
+      setLocationLatLng(data["userLocation"])
+      setRecommendationIndex(data["messages"].length - 1)
+      setIsModalOpen(true);
     } else {
       console.error("Failed to search:", res.status);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 flex flex-col justify-between">
-      <div className="flex flex-col space-y-4 overflow-y-auto">
-        {messages.map((message, messageIndex) => (
-          <div
-            key={messageIndex}
-            className={`p-4 rounded-lg max-w-lg ${
-              message.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-200 text-black self-start"
-            }`}
-          >
-            {typeof message.content === "string"
-              ? <p>{message.content}</p>
-              : message.content.map((contentPart, partIndex) =>
-                contentPart.type === "text"
-                  ? <p key={messageIndex + "-" + partIndex}>{contentPart.text}</p>
-                  : <p key={messageIndex + "-" + partIndex}>{contentPart.type} is here...</p>
-              )}
+    <>
+      <MapModal
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={() => setIsModalOpen(false)}
+        recommendations={recommendationIndex !== null ? recommendations[recommendationIndex] : []}
+        center={locationLatLng}
+      />
+      <div className="min-h-screen bg-gray-100 p-6 flex flex-col justify-between">
+        <div className="flex flex-col space-y-4 overflow-y-auto">
+          {messages.map((message, messageIndex) => (
+            <div
+              key={messageIndex}
+              className={`p-4 rounded-lg max-w-lg ${
+                message.role === "user" ? "bg-blue-500 text-white self-end" : "bg-gray-200 text-black self-start"
+              }`}
+            >
+              <>
+              {typeof message.content === "string"
+                ? <p>{message.content}</p>
+                : message.content.map((contentPart, partIndex) =>
+                  contentPart.type === "text"
+                    ? <p key={messageIndex + "-" + partIndex}>{contentPart.text}</p>
+                    : <p key={messageIndex + "-" + partIndex}>{contentPart.type} is here...</p>
+                )}
+              {((Object.keys(recommendations) !== undefined ) && (Object.keys(recommendations).includes(messageIndex.toString())))
+                ??
+                  <div className="flex flex-col items-center justify-center">
+                    <button
+                      className="bg-slate-900 hover:bg-slate-700 text-white text-lg w-60 h-14 py-2 px-4"
+                      onClick={() => {
+                        setIsModalOpen(true)
+                        setRecommendationIndex(messageIndex)
+                      }}
+                    >
+                      Open Map
+                    </button>
+                  </div>
+              }
+              </>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-col space-y-2">
+          <input
+            type="text"
+            value={location}   // 場所入力
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
+            placeholder="場所を入力してください"
+            className="p-2 border border-gray-300 rounded-lg"
+          />
+          <input
+            type="text"
+            value={food}       // 食べ物入力
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setFood(e.target.value)}
+            placeholder="食べ物を入力してください"
+            className="p-2 border border-gray-300 rounded-lg"
+          />
+          <div className="mt-4 flex items-center space-x-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+              placeholder="メッセージを入力してください"
+              className="flex-1 p-2 border border-gray-300 rounded-lg"
+            />
+            <button
+              onClick={handleMessageSubmit}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+              送信
+            </button>
+            <button
+              onClick={handleSearch}
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+            >
+              店舗を検索
+            </button>
           </div>
-        ))}
+        </div>
       </div>
-      <div className="mt-4 flex items-center space-x-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-          placeholder="メッセージを入力してください"
-          className="flex-1 p-2 border border-gray-300 rounded-lg"
-        />
-        <button
-          onClick={handleMessageSubmit}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-        >
-          送信
-        </button>
-        <button
-          onClick={handleSearch}
-          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
-        >
-          店舗を検索
-        </button>
-      </div>
-    </div>
+    </>
   );
 }
 
-export default withAuthenticator(HistoryList)
+export default withAuthenticator(TalkGenerate);

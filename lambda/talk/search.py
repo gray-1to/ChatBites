@@ -332,9 +332,7 @@ def lambda_handler(event, context):
     print("talk/search start")
     print(f"event: {event}")
     try:
-        # TODO: fix
-        # body = json.loads(event["body"])
-        body = event["body"]
+        body = json.loads(event["body"])
         print(f"body: {body}")
     except (json.JSONDecodeError, TypeError) as e:
         return {
@@ -417,14 +415,15 @@ def lambda_handler(event, context):
             "body": json.dumps({"message": "Exec upper limit"}),
         }
 
-    lat, lon = get_lat_lon(location)
-    print("lat_lon", lat, lon)
-    restaurants = get_restaurants(lat, lon, food)
+    lat, lng = get_lat_lon(location)
+    print("lat_lon", lat, lng)
+    restaurants = get_restaurants(lat, lng, food)
 
     restaurant_condition = get_condition_from_messages(messages)
 
     top_restaurant_score_pairs = rerank(restaurants, restaurant_condition)
 
+    messages.append({"role": "user", "content": "条件に合うお店を教えて。"})
     restaurants_proposal_message = "以下の店舗をお勧めします。\n" + "\n".join(
         [top_restaurant_score_pair[0]['displayName']['text'] for top_restaurant_score_pair in top_restaurant_score_pairs]
     )
@@ -456,6 +455,37 @@ def lambda_handler(event, context):
             },
             "body": json.dumps({"message": "Saving messages error"}),
         }
+    
+    recommendations_data = [{"displayName": top_restaurant_score_pair[0]["displayName"]["text"],
+                             "googleMapsUri": top_restaurant_score_pair[0]["googleMapsUri"],
+                             "location": {
+                                "lat": top_restaurant_score_pair[0]["location"]["latitude"],
+                                "lng": top_restaurant_score_pair[0]["location"]["longitude"]}
+                                }
+                             for top_restaurant_score_pair in top_restaurant_score_pairs]
+    
+    body = {
+        "messages": messages,
+        "recommendations": recommendations_data,
+        "userLocation": {
+            "lat": lat,
+            "lng": lng
+        }
+    }
+    
+    try:
+        body_str = json.dumps(body)
+    except e:
+        print(e)
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            "body": "result json error",
+        }
 
     # レスポンスを返す
     return {
@@ -465,5 +495,5 @@ def lambda_handler(event, context):
             "Access-Control-Allow-Methods": "POST",
             "Access-Control-Allow-Headers": "Content-Type",
         },
-        "body": json.dumps(messages),
+        "body": body_str,
     }
