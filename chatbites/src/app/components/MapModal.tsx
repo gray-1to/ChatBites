@@ -65,7 +65,7 @@ const MapModal = (props: ModalProps) => {
 
   return props.open ? (
     <>
-      <div className="bg-white top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-start absolute z-20">
+      <div className="bg-white top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-start fixed z-20">
         <div style={{ height: "500px", width: "500px" }}>
           <GoogleMapReact
             bootstrapURLKeys={{
