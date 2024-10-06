@@ -51,6 +51,28 @@ function TalkGenerate() {
   const [recommendationIndex, setRecommendationIndex] = useState<number | null>(null)
   const [recommendations, setRecommendations] = useState<{[name: string]: Recommendation[]}>({})
   const [locationLatLng, setLocationLatLng] = useState<LatLng>({lat: 0, lng: 0})
+  const [isCurrentLocationLatLng, setIsCurrentLocationLatLng] = useState<boolean>(false)
+
+  const handleCurrentLocation = () => {
+  // 位置情報を取得して設定する関数
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocationLatLng({ lat: latitude, lng: longitude });
+          setIsCurrentLocationLatLng(true)
+          setLocation("現在地");
+          console.log({ lat: latitude, lng: longitude })
+        },
+        (error) => {
+          setIsCurrentLocationLatLng(false)
+          console.error("Error retrieving location", error);
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  }
 
   const handleMessageSubmit = async () => {
     // ログインしているユーザーのIDを取得
@@ -118,6 +140,8 @@ function TalkGenerate() {
       userId: userId, 
       messages: messages,
       location: location,  // 追加: 場所データを含む
+      locationLatLng: locationLatLng,
+      isCurrentLocationLatLng: isCurrentLocationLatLng,
       food: food           // 追加: 食べ物データを含む
     });
     console.log("request body", body);
@@ -196,13 +220,24 @@ function TalkGenerate() {
         </div>
 
         <div className="mt-4 flex flex-col space-y-2">
-          <input
-            type="text"
-            value={location}   // 場所入力
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
-            placeholder="場所を入力してください"
-            className="p-2 border border-gray-300 rounded-lg"
-          />
+          <div className="mt-4 flex space-x-2">
+            <input
+              type="text"
+              value={location}   // 場所入力
+              onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                setIsCurrentLocationLatLng(false)
+                setLocation(e.target.value)
+              }}
+              placeholder="場所を入力してください"
+              className="p-2 w-5/6 border border-gray-300 rounded-lg"
+            />
+            <button
+              onClick={handleCurrentLocation}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+              現在地
+            </button>
+          </div>
           <input
             type="text"
             value={food}       // 食べ物入力

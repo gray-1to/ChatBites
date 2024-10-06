@@ -128,7 +128,8 @@ def get_restaurants(lat, lon, food):
     }
     query = json.dumps({
         "textQuery": food,
-        "maxResultCount": 20,
+        # TODO: fix
+        "maxResultCount": 3,
         "locationBias": {
             "circle": {
                 "center": {
@@ -349,6 +350,8 @@ def lambda_handler(event, context):
     userId = body.get("userId")
     messages = body.get("messages")
     location = body.get("location")
+    locationLatLng = body.get("locationLatLng")
+    isCurrentLocationLatLng = body.get("isCurrentLocationLatLng")
     food = body.get("food")
 
     # # 必須フィールドの存在を確認
@@ -359,6 +362,10 @@ def lambda_handler(event, context):
         miss_fields.append("messages")
     if not location:
         miss_fields.append("location")
+    if not location:
+        miss_fields.append("locationLatLng")
+    if not location:
+        miss_fields.append("isCurrentLocationLatLng")
     if not food:
         miss_fields.append("food")
     if len(miss_fields) > 0:
@@ -403,19 +410,10 @@ def lambda_handler(event, context):
                 "body": json.dumps({"message": "Error in saving new talk."}),
             }
 
-    # 実行回数チェック
-    if not check_exec_upper_limit(userId):
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Exec upper limit"}),
-        }
-
-    lat, lng = get_lat_lon(location)
+    if bool(isCurrentLocationLatLng):
+        lat, lng = locationLatLng["lat"], locationLatLng["lng"]
+    else:
+        lat, lng = get_lat_lon(location)
     print("lat_lon", lat, lng)
     restaurants = get_restaurants(lat, lng, food)
 
