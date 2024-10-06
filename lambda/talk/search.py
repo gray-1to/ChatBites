@@ -117,7 +117,88 @@ def get_lat_lon(location):
     return (place["location"]["latitude"], place["location"]["longitude"])
 
 
-def get_restaurants(lat, lon, food):
+def get_restaurant_categories(food):
+    # bedrock
+    bedrock_runtime = boto3.client(
+        service_name="bedrock-runtime", region_name="ap-northeast-1"
+    )
+
+    model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    system_prompt = """
+# 指示
+あなたは料理を扱う飲食店の提案を行うAIです。
+「甘いもの」や「丼もの」のようなキーワードが渡されます。
+キーワードに対して「ケーキ屋」や「牛丼屋」のようなキーワードの料理を扱う飲食店を複数回答してください。
+
+# 制約
+回答する飲食店名は5つまでにしてください。
+なるべく多様な飲食店にしてください。
+日本で一般的な飲食店にしてください。
+
+# 出力形式
+カンマ区切りで料理名だけを答えてください。
+牛丼屋,親子丼屋,うな重
+"""
+    
+    examples =  [
+        {"role": "user",
+         "content": "甘いもの"},
+        {"role": "assistant",
+         "content": "ケーキ屋,クレープ屋,和菓子屋,チョコレート専門店,パフェ専門店"},
+        {"role": "user",
+         "content": "軽食"},
+        {"role": "assistant",
+         "content": "カフェ,ベーカリー,ホットドッグ屋,ハンバーガーショップ,コンビニ"},
+         
+    ]
+
+    max_tokens = 100
+    messages = examples.append([
+        {
+            "role": "user",
+            "content": food ,
+        }
+    ])
+
+    body = json.dumps(
+        {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": messages,
+        }
+    )
+
+    # モデルの呼び出し
+    try:
+        response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
+    except Exception as e:
+        print(e)
+        return {
+            "statusCode": 400,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            "body": json.dumps({"message": "Error in invoke model"}),
+        }
+
+    # StreamingBodyを読み取る
+    response_body = response["body"].read().decode("utf-8")
+    response_data = json.loads(response_body)
+    output = response_data["content"][0]["text"]
+    print("restaurant category: ", output)
+    try:
+        restaurant_categories = output.split(",")
+    except e:
+        print(e)
+        print(output)
+        restaurant_categories = ["コンビニ", "ファミレス"]
+    return restaurant_categories
+
+
+def get_restaurants(lat, lon, food, maxResultCount):
     # 緯度経度からNearbySearchで近辺の飲食店を取得
     radius = 1500
     url = "https://places.googleapis.com/v1/places:searchText"
@@ -128,8 +209,7 @@ def get_restaurants(lat, lon, food):
     }
     query = json.dumps({
         "textQuery": food,
-        # TODO: fix
-        "maxResultCount": 3,
+        "maxResultCount": maxResultCount,
         "locationBias": {
             "circle": {
                 "center": {
@@ -353,6 +433,7 @@ def lambda_handler(event, context):
     locationLatLng = body.get("locationLatLng")
     isCurrentLocationLatLng = body.get("isCurrentLocationLatLng")
     food = body.get("food")
+    isFuzzyFoodSearch = body.get("isFuzzyFoodSearch")
 
     # # 必須フィールドの存在を確認
     miss_fields = []
@@ -368,6 +449,8 @@ def lambda_handler(event, context):
         miss_fields.append("isCurrentLocationLatLng")
     if not food:
         miss_fields.append("food")
+    if not isFuzzyFoodSearch:
+        miss_fields.append("isFuzzyFoodSearch")
     if len(miss_fields) > 0:
         return {
             "statusCode": 400,
@@ -410,12 +493,22 @@ def lambda_handler(event, context):
                 "body": json.dumps({"message": "Error in saving new talk."}),
             }
 
+    # 現在地を緯度経度に
     if bool(isCurrentLocationLatLng):
         lat, lng = locationLatLng["lat"], locationLatLng["lng"]
     else:
         lat, lng = get_lat_lon(location)
     print("lat_lon", lat, lng)
-    restaurants = get_restaurants(lat, lng, food)
+
+    # 飲食店を検索
+    if bool(isFuzzyFoodSearch):
+        restaurant_categories = get_restaurant_categories(food)
+        
+        restaurants = []
+        for restaurant_category in restaurant_categories:
+            restaurants.append(get_restaurants(lat, lng, restaurant_category, RECOMMEND_RESTAURANT_NUM/len(restaurant_categories) + 1))
+    else:
+        restaurants = get_restaurants(lat, lng, food, RECOMMEND_RESTAURANT_NUM)
 
     restaurant_condition = get_condition_from_messages(messages)
 

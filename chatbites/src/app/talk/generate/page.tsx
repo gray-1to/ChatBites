@@ -47,6 +47,7 @@ function TalkGenerate() {
   const [input, setInput] = useState<string>("");
   const [location, setLocation] = useState<string>("");  // 追加: 場所入力用
   const [food, setFood] = useState<string>("");          // 追加: 食べ物入力用
+  const [isFuzzyFoodSearch, setIsFuzzyFoodSearch] = useState<boolean>(false)
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [recommendationIndex, setRecommendationIndex] = useState<number | null>(null)
   const [recommendations, setRecommendations] = useState<{[name: string]: Recommendation[]}>({})
@@ -142,7 +143,8 @@ function TalkGenerate() {
       location: location,  // 追加: 場所データを含む
       locationLatLng: locationLatLng,
       isCurrentLocationLatLng: isCurrentLocationLatLng,
-      food: food           // 追加: 食べ物データを含む
+      food: food,           // 追加: 食べ物データを含む
+      isFuzzyFoodSearch: isFuzzyFoodSearch,
     });
     console.log("request body", body);
 
@@ -229,39 +231,47 @@ function TalkGenerate() {
                 setLocation(e.target.value)
               }}
               placeholder="場所を入力してください"
-              className="p-2 w-5/6 border border-gray-300 rounded-lg"
+              className="w-full p-2 border border-gray-300 rounded-lg"
             />
             <button
               onClick={handleCurrentLocation}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              className="whitespace-nowrap bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
             >
               現在地
             </button>
           </div>
-          <input
-            type="text"
-            value={food}       // 食べ物入力
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setFood(e.target.value)}
-            placeholder="食べ物を入力してください"
-            className="p-2 border border-gray-300 rounded-lg"
-          />
+          <div className="mt-4 flex space-x-2">
+            <input
+              type="text"
+              value={food}       // 食べ物入力
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFood(e.target.value)}
+              placeholder="食べ物を入力してください"
+              className="p-2 w-full border border-gray-300 rounded-lg"
+            />
+            <button
+              onClick={() => setIsFuzzyFoodSearch(!isFuzzyFoodSearch)}
+              className={`whitespace-nowrap ${isFuzzyFoodSearch ? "bg-blue-500 hover:bg-blue-600" : "bg-blue-200 hover:bg-blue-300"} text-white px-4 py-2 rounded-lg`}
+            >
+              曖昧検索 {isFuzzyFoodSearch ? "ON " : "OFF"}
+            </button>
+          </div>
           <div className="mt-4 flex items-center space-x-2">
             <input
               type="text"
               value={input}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
               placeholder="メッセージを入力してください"
-              className="flex-1 p-2 border border-gray-300 rounded-lg"
+              className="w-full flex-1 p-2 border border-gray-300 rounded-lg"
             />
             <button
               onClick={handleMessageSubmit}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              className="whitespace-nowrap bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
             >
               送信
             </button>
             <button
               onClick={handleSearch}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
+              className="whitespace-nowrap bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600"
             >
               店舗を検索
             </button>
