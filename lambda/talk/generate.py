@@ -104,7 +104,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Invalid JSON input"}),
+            "body": json.dumps({"message": "JSON解析エラー"}),
         }
 
     # 解析されたデータを確認 (例: name と age)
@@ -113,9 +113,9 @@ def lambda_handler(event, context):
 
     # 必須フィールドの存在を確認
     miss_fields = []
-    if not userId:
+    if userId is None:
         miss_fields.append("userId")
-    if not messages:
+    if messages is None:
         miss_fields.append("messages")
     if len(miss_fields) > 0:
         return {
@@ -126,12 +126,12 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Headers": "Content-Type",
             },
             "body": json.dumps(
-                {"message": f'Missing required fields: {",".join(miss_fields)}'}
+                {"message": f'実行時エラー ( Missing required fields: {",".join(miss_fields)})'}
             ),
         }
     # historyIdを設定
     historyId = body.get("historyId")
-    if not historyId:
+    if historyId is None:
         try:
             historyId = init_history(userId)
         except Exception as e:
@@ -143,7 +143,7 @@ def lambda_handler(event, context):
                     "Access-Control-Allow-Methods": "POST",
                     "Access-Control-Allow-Headers": "Content-Type",
                 },
-                "body": json.dumps({"message": "Error in saving new talk."}),
+                "body": json.dumps({"message": "トークの新規作成に失敗しました。"}),
             }
 
     # 実行回数チェック
@@ -155,7 +155,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Exec upper limit"}),
+            "body": json.dumps({"message": "利用上限に達しました。日付を変えて実行してください。"}),
         }
 
     # bedrock
@@ -201,7 +201,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Saving exec error"}),
+            "body": json.dumps({"message": "実行記録の保存時エラー"}),
         }
 
     # 対話記録の保存
@@ -215,7 +215,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Saving messages error"}),
+            "body": json.dumps({"message": "実行履歴の保存時エラー"}),
         }
 
     # レスポンスを返す
@@ -226,5 +226,5 @@ def lambda_handler(event, context):
             "Access-Control-Allow-Methods": "POST",
             "Access-Control-Allow-Headers": "Content-Type",
         },
-        "body": json.dumps(messages),
+        "body": json.dumps({"messages": messages}),
     }

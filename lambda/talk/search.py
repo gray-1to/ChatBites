@@ -108,15 +108,7 @@ def get_lat_lon(location):
     try:
         res = requests.post(url, headers=headers, data=query)
     except Exception as e:
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in search map"}),
-        }
+        raise e
     place = res.json()["places"][0]
     return (place["location"]["latitude"], place["location"]["longitude"])
 
@@ -178,16 +170,7 @@ def get_restaurant_categories(food):
     try:
         response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
     except Exception as e:
-        print(e)
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in invoke model"}),
-        }
+        raise e
 
     # StreamingBodyを読み取る
     response_body = response["body"].read().decode("utf-8")
@@ -230,16 +213,8 @@ def get_restaurants(lat, lon, food, maxResultCount):
     try:
         res = requests.post(url, headers=headers, data=query)
     except Exception as e:
-        print(e)
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in getting restaurants"}),
-        }
+        raise e
+    
     restaurants = res.json()["places"]
     restaurants = list(filter(lambda restaurant: restaurant.get('currentOpeningHours').get('openNow') if restaurant.get('currentOpeningHours') else False, restaurants))
     print("restaurant num", len(restaurants))
@@ -289,15 +264,7 @@ def get_condition_from_messages(messages):
         response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
     except Exception as e:
         print(e)
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in invoke model"}),
-        }
+        raise e
 
     # StreamingBodyを読み取る
     response_body = response["body"].read().decode("utf-8")
@@ -361,16 +328,7 @@ def ask_llm(restaurant_info, needs):
     try:
         response = bedrock_runtime.invoke_model(body=body, modelId=model_id)
     except Exception as e:
-        print(e)
-        return {
-            "statusCode": 400,
-            "headers": {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST",
-                "Access-Control-Allow-Headers": "Content-Type",
-            },
-            "body": json.dumps({"message": "Error in invoke model"}),
-        }
+        raise e
 
     # StreamingBodyを読み取る
     response_body = response["body"].read().decode("utf-8")
@@ -429,7 +387,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Invalid JSON input"}),
+            "body": json.dumps({"message": "JSON解析エラー"}),
         }
 
     # データを確認
@@ -443,19 +401,19 @@ def lambda_handler(event, context):
 
     # # 必須フィールドの存在を確認
     miss_fields = []
-    if not userId:
+    if userId is None:
         miss_fields.append("userId")
-    if not messages:
+    if messages is None:
         miss_fields.append("messages")
-    if not location:
+    if location is None:
         miss_fields.append("location")
-    if not location:
+    if location is None:
         miss_fields.append("locationLatLng")
-    if not location:
+    if location is None:
         miss_fields.append("isCurrentLocationLatLng")
-    if not food:
+    if food is None:
         miss_fields.append("food")
-    if not isFuzzyFoodSearch:
+    if isFuzzyFoodSearch is None:
         miss_fields.append("isFuzzyFoodSearch")
     if len(miss_fields) > 0:
         return {
@@ -466,7 +424,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Headers": "Content-Type",
             },
             "body": json.dumps(
-                {"message": f'Missing required fields: {",".join(miss_fields)}'}
+                {"message": f'実行時エラー ( Missing required fields: {",".join(miss_fields)})'}
             ),
         }
 
@@ -479,12 +437,12 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Exec upper limit"}),
+            "body": json.dumps({"message": "利用上限に達しました。日付を変えて実行してください。"}),
         }
 
     # historyIdを設定
     historyId = body.get("historyId")
-    if not historyId:
+    if historyId is None:
         try:
             historyId = init_history(userId)
         except Exception as e:
@@ -496,7 +454,7 @@ def lambda_handler(event, context):
                     "Access-Control-Allow-Methods": "POST",
                     "Access-Control-Allow-Headers": "Content-Type",
                 },
-                "body": json.dumps({"message": "Error in saving new talk."}),
+                "body": json.dumps({"message": "トークの新規作成に失敗しました。"}),
             }
 
     # 現在地を緯度経度に
@@ -539,7 +497,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Saving exec error"}),
+            "body": json.dumps({"message": "実行記録の保存時エラー"}),
         }
 
     # 対話記録の保存
@@ -553,7 +511,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": json.dumps({"message": "Saving messages error"}),
+            "body": json.dumps({"message": "実行履歴の保存時エラー"}),
         }
     
     recommendations_data = [{"displayName": top_restaurant_score_pair[0]["displayName"]["text"],
@@ -584,7 +542,7 @@ def lambda_handler(event, context):
                 "Access-Control-Allow-Methods": "POST",
                 "Access-Control-Allow-Headers": "Content-Type",
             },
-            "body": "result json error",
+            "body": json.dumps({"message": "JSON解析エラー"}),
         }
 
     # レスポンスを返す

@@ -25,8 +25,12 @@ type LatLng = {
   lng: number
 }
 
+type SubmitResponse = {
+  messages: Message[] | string;
+}
+
 type SearchResponse = {
-  messages: Message[];
+  messages: Message[] | string;
   recommendations: Recommendation[];
   userLocation: LatLng
 }
@@ -54,6 +58,7 @@ function TalkGenerate() {
   const [recommendations, setRecommendations] = useState<{[name: string]: Recommendation[]}>({})
   const [locationLatLng, setLocationLatLng] = useState<LatLng>({lat: 0, lng: 0})
   const [isCurrentLocationLatLng, setIsCurrentLocationLatLng] = useState<boolean>(false)
+  const [formErrorMessage, setFormErrorMessage] = useState<string|null>(null)
 
   const handleCurrentLocation = () => {
   // 位置情報を取得して設定する関数
@@ -73,6 +78,7 @@ function TalkGenerate() {
       );
     } else {
       console.error("Geolocation is not supported by this browser.");
+      setFormErrorMessage("位置情報の自動取得に失敗しました。")
     }
   }
 
@@ -85,6 +91,7 @@ function TalkGenerate() {
       })
       .catch(error => {
         console.error("Failed to get user:", error);
+        setFormErrorMessage("ユーザーの取得に失敗しました。")
       });
   }
 
@@ -102,20 +109,41 @@ function TalkGenerate() {
     });
     console.log("request body", body);
 
-    const res = await fetch(url + "talk/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-    });
+    setMessages([...messages, { role: "user", content: input }, { role: "assistant", content: "Loading..." }])
+
+    let res
+    try{
+      res = await fetch(url + "talk/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+      });
+    }catch{
+      setFormErrorMessage("API接続失敗")
+      return
+    }
 
     console.log("response", res);
     if (res.ok) {
-      const data: Message[] = await res.json();
-      setMessages(data);
-      setInput("");
+      const data: SubmitResponse = await res.json();
+      if (res.status == 200){
+        if (typeof data["messages"] === "string"){
+          setFormErrorMessage("API接続失敗")
+          return
+        }
+        setMessages(data["messages"]);
+        setInput("");
+      }else{
+        if (typeof data["messages"] === "object"){
+          setFormErrorMessage("API接続失敗")
+          return
+        }
+        setFormErrorMessage(data["messages"])
+      }
     } else {
+      setFormErrorMessage("API接続失敗")
       console.error("Failed to fetch histories:", res.status);
     }
   };
@@ -129,6 +157,7 @@ function TalkGenerate() {
       })
       .catch(error => {
         console.error("Failed to get user:", error);
+        setFormErrorMessage("ユーザーの取得に失敗しました。")
       });
   }
 
@@ -149,29 +178,53 @@ function TalkGenerate() {
     });
     console.log("request body", body);
 
-    const res = await fetch(url + "talk/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-    });
+    setMessages([...messages, 
+                  {"role": "user", "content": "条件に合うお店を教えて。"},
+                  {"role": "assistant", "content": "Loading..."},
+                ])
+    
+    let res
+    try{
+      res = await fetch(url + "talk/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+      });
+    }catch{
+      setFormErrorMessage("API接続失敗")
+      return
+    }
 
     const data: SearchResponse = await res.json();
     console.log("response json", data);
     if (res.ok) {
-      setMessages(data["messages"]);
-      setInput("");
-      setRecommendations(pre => {
-        const message_index = data["messages"].length - 1
-        return{
-        ...pre,
-        [message_index.toString()]: data["recommendations"]
-      }});
-      setLocationLatLng(data["userLocation"])
-      setRecommendationIndex(data["messages"].length - 1)
-      setIsModalOpen(true);
+      if (res.status == 200){
+        if (typeof data["messages"] === "string"){
+          setFormErrorMessage("API接続失敗")
+          return
+        }
+        setMessages(data["messages"]);
+        setInput("");
+        setRecommendations(pre => {
+          const message_index = data["messages"].length - 1
+          return{
+          ...pre,
+          [message_index.toString()]: data["recommendations"]
+        }});
+        setLocationLatLng(data["userLocation"])
+        setRecommendationIndex(data["messages"].length - 1)
+        setIsModalOpen(true);        
+      }else{
+        if (typeof data["messages"] === "object"){
+          setFormErrorMessage("API接続失敗")
+          return
+        }
+        setFormErrorMessage(data["messages"])
+      }
     } else {
+      setFormErrorMessage("API接続失敗")
       console.error("Failed to search:", res.status);
     }
   };
@@ -224,6 +277,7 @@ function TalkGenerate() {
         </div>
 
         <div className="mt-4 flex flex-col space-y-2">
+          <span className="text-red-500 text-lg font-bold mx-auto">{(formErrorMessage !== null) && formErrorMessage}</span>
           <div className="mt-4 flex space-x-2">
             <input
               type="text"
