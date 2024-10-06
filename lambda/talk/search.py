@@ -9,11 +9,12 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 
-EXEC_UPPER_LIMIT = 10000
+EXEC_UPPER_LIMIT = 2
 dynamodb = boto3.client("dynamodb")
 s3 = boto3.client("s3")
 GOOGLE_MAP_API_KEY = os.environ["GOOGLE_MAP_API_KEY"]
 RECOMMEND_RESTAURANT_NUM = 5
+DEMO_USERID = os.environ["DEMO_USERID"]
 
 def init_history(userId):
     id = str(uuid.uuid4())
@@ -31,6 +32,9 @@ def init_history(userId):
 
 
 def check_exec_upper_limit(userId):
+    # デモユーザーは上限判定をしない
+    if userId == DEMO_USERID:
+        return True
     DYNAMODB_EXEC_TABLE_NAME = os.environ["DYNAMODB_EXEC_TABLE_NAME"]
 
     # 現在時刻と15分前の時刻をUnix Timeで取得
@@ -118,6 +122,7 @@ def get_lat_lon(location):
 
 
 def get_restaurant_categories(food):
+    print("food in get_restaurant_categories", food)
     # bedrock
     bedrock_runtime = boto3.client(
         service_name="bedrock-runtime", region_name="ap-northeast-1"
@@ -140,7 +145,7 @@ def get_restaurant_categories(food):
 牛丼屋,親子丼屋,うな重
 """
     
-    examples =  [
+    messages =  [
         {"role": "user",
          "content": "甘いもの"},
         {"role": "assistant",
@@ -152,13 +157,13 @@ def get_restaurant_categories(food):
          
     ]
 
-    max_tokens = 100
-    messages = examples.append([
+    max_tokens = 100 
+    messages.append(
         {
             "role": "user",
-            "content": food ,
+            "content": food
         }
-    ])
+    )
 
     body = json.dumps(
         {
@@ -190,6 +195,7 @@ def get_restaurant_categories(food):
     output = response_data["content"][0]["text"]
     print("restaurant category: ", output)
     try:
+        print(output)
         restaurant_categories = output.split(",")
     except e:
         print(e)
@@ -502,12 +508,15 @@ def lambda_handler(event, context):
 
     # 飲食店を検索
     if bool(isFuzzyFoodSearch):
+        print("fuzzy true")
         restaurant_categories = get_restaurant_categories(food)
         
+        print("restaurant_categories", restaurant_categories)
         restaurants = []
         for restaurant_category in restaurant_categories:
-            restaurants.append(get_restaurants(lat, lng, restaurant_category, RECOMMEND_RESTAURANT_NUM/len(restaurant_categories) + 1))
+            restaurants.extend(get_restaurants(lat, lng, restaurant_category, RECOMMEND_RESTAURANT_NUM/len(restaurant_categories) + 1))
     else:
+        print("fuzzy false")
         restaurants = get_restaurants(lat, lng, food, RECOMMEND_RESTAURANT_NUM)
 
     restaurant_condition = get_condition_from_messages(messages)
@@ -588,3 +597,4 @@ def lambda_handler(event, context):
         },
         "body": body_str,
     }
+

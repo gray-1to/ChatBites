@@ -191,6 +191,7 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
     talkGenerateLambdaFunction.addEnvironment("DYNAMODB_HISTORY_TABLE_NAME", historyTable.tableName)
     talkGenerateLambdaFunction.addEnvironment("DYNAMODB_EXEC_TABLE_NAME", execTable.tableName)
     talkGenerateLambdaFunction.addEnvironment("DYNAMODB_HISTORY_BUCKET_NAME", dataSourceS3Bucket.bucketName)
+    talkGenerateLambdaFunction.addEnvironment("DEMO_USERID", process.env.DEMO_USERID ?? '')
     talkGenerateLambdaFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -233,7 +234,8 @@ export class AmplifyApiLambdaStack extends cdk.Stack {
           REGION: cdk.Stack.of(this).region,
           DYNAMODB_HISTORY_TABLE_NAME: historyTable.tableName,
           DYNAMODB_HISTORY_BUCKET_NAME: dataSourceS3Bucket.bucketName,
-          DYNAMODB_EXEC_TABLE_NAME: execTable.tableName
+          DYNAMODB_EXEC_TABLE_NAME: execTable.tableName,
+          DEMO_USERID: process.env.DEMO_USERID ?? ''
         },
       }
     );
