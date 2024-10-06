@@ -111,13 +111,19 @@ function TalkGenerate() {
 
     setMessages([...messages, { role: "user", content: input }, { role: "assistant", content: "Loading..." }])
 
-    const res = await fetch(url + "talk/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-    });
+    let res
+    try{
+      res = await fetch(url + "talk/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+      });
+    }catch{
+      setFormErrorMessage("API接続失敗")
+      return
+    }
 
     console.log("response", res);
     if (res.ok) {
@@ -176,13 +182,20 @@ function TalkGenerate() {
                   {"role": "user", "content": "条件に合うお店を教えて。"},
                   {"role": "assistant", "content": "Loading..."},
                 ])
-    const res = await fetch(url + "talk/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: body,
-    });
+    
+    let res
+    try{
+      res = await fetch(url + "talk/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body,
+      });
+    }catch{
+      setFormErrorMessage("API接続失敗")
+      return
+    }
 
     const data: SearchResponse = await res.json();
     console.log("response json", data);
