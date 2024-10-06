@@ -6,9 +6,10 @@ import time
 import os
 from boto3.dynamodb.conditions import Key
 
-EXEC_UPPER_LIMIT = 10
+EXEC_UPPER_LIMIT = 2
 dynamodb = boto3.client("dynamodb")
 s3 = boto3.client("s3")
+DEMO_USERID = os.environ["DEMO_USERID"]
 
 
 def init_history(userId):
@@ -27,6 +28,9 @@ def init_history(userId):
 
 
 def check_exec_upper_limit(userId):
+    # デモユーザーは上限判定をしない
+    if userId == DEMO_USERID:
+        return True
     DYNAMODB_EXEC_TABLE_NAME = os.environ["DYNAMODB_EXEC_TABLE_NAME"]
 
     # 現在時刻と15分前の時刻をUnix Timeで取得

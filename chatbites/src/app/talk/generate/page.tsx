@@ -5,6 +5,7 @@ import { Amplify } from 'aws-amplify'
 import { getCurrentUser } from "aws-amplify/auth";
 import awsconfig from '../../../../aws-exports'; // aws-exports.jsへのパスを指定
 import MapModal from '../../components/MapModal';
+import Header from "@/app/components/Header";
 Amplify.configure(awsconfig);
 
 
@@ -176,7 +177,8 @@ function TalkGenerate() {
   };
 
   return (
-    <>
+    <div>
+      <Header/>
       <MapModal
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
@@ -184,7 +186,7 @@ function TalkGenerate() {
         recommendations={recommendationIndex !== null ? recommendations[recommendationIndex] : []}
         center={locationLatLng}
       />
-      <div className="min-h-screen bg-gray-100 p-6 flex flex-col justify-between">
+      <div className="min-h-screen bg-gray-100 p-6 pt-[100px] flex flex-col justify-between">
         <div className="flex flex-col space-y-4 overflow-y-auto">
           {messages.map((message, messageIndex) => (
             <div
@@ -278,9 +280,10 @@ function TalkGenerate() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
 export default withAuthenticator(TalkGenerate);
+
 
