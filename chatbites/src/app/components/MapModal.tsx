@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import GoogleMapReact from "google-map-react";
 
 type Reccomendation = {
@@ -22,19 +22,39 @@ export type ModalProps = {
 };
 
 const MapModal = (props: ModalProps) => {
+  const [activeMarker, setActiveMarker] = useState<google.maps.Marker | null>(null);
+  const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
+
   const handleApiLoaded = ({ map, maps }) => {
     const bounds = new maps.LatLngBounds();
+    const infoWindowInstance = new maps.InfoWindow(); // InfoWindowインスタンスを作成
 
-    // マーカーを作成し、クリックイベントを追加
     props.recommendations.forEach((recommendation) => {
       const marker = new maps.Marker({
         map,
-        position: recommendation["location"],
+        position: recommendation.location,
       });
 
-      // マーカーをクリックしたときに別タブでgoogleMapsUriを開く
+      // マーカークリック時にInfoWindowを開く
       marker.addListener("click", () => {
-        window.open(recommendation.googleMapsUri, "_blank");
+        if (activeMarker) {
+          infoWindow.close(); // 既存のInfoWindowを閉じる
+        }
+
+        setActiveMarker(marker);
+
+        // Google Mapsの経路検索URLを構成
+        const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${recommendation.location.lat},${recommendation.location.lng}`;
+
+        infoWindowInstance.setContent(
+          `<div style="display: flex;flex-direction: column;align-items: center;">
+             <h3>${recommendation.displayName}</h3>
+             <a href="${recommendation.googleMapsUri}" target="_blank" rel="noopener noreferrer">Google Mapsで開く</a><br/>
+             <button onclick="window.open('${directionsUrl}', '_blank')">経路検索</button>
+           </div>`
+        );
+        infoWindowInstance.open(map, marker);
+        setInfoWindow(infoWindowInstance);
       });
 
       bounds.extend(marker.position);
@@ -45,7 +65,7 @@ const MapModal = (props: ModalProps) => {
 
   return props.open ? (
     <>
-      <div className="bg-white  top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-start absolute z-20">
+      <div className="bg-white top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-start absolute z-20">
         <div style={{ height: "500px", width: "500px" }}>
           <GoogleMapReact
             bootstrapURLKeys={{
@@ -68,3 +88,4 @@ const MapModal = (props: ModalProps) => {
 };
 
 export default MapModal;
+
