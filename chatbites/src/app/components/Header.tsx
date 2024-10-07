@@ -36,9 +36,12 @@ function Header() {
 
   return (
     <header className="fixed w-full bg-gray-700 p-4 flex justify-between items-center">
-      <div className="text-white text-lg font-bold">
-        MyApp
-      </div>
+      <a href='/'>
+        <div className="text-white text-lg font-bold">
+          ChatBites
+        </div>
+      </a>
+
       <div className='flex items-center space-x-4'>
         <span className="text-white text-lg font-bold">{(user !== null) && `${user.signInDetails?.loginId}`}</span>
         <button
