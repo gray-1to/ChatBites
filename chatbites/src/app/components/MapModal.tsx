@@ -23,9 +23,13 @@ export type ModalProps = {
 
 const MapModal = (props: ModalProps) => {
   // @ts-expect-error google not found
-  const [activeMarker, setActiveMarker] = useState<google.maps.Marker | null>(null);
+  const [activeMarker, setActiveMarker] = useState<google.maps.Marker | null>(
+    null
+  );
   // @ts-expect-error google not found
-  const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
+  const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(
+    null
+  );
 
   // @ts-expect-error map, maps: any
   const handleApiLoaded = ({ map, maps }) => {
@@ -72,11 +76,12 @@ const MapModal = (props: ModalProps) => {
         <div style={{ height: "500px", width: "500px" }}>
           <GoogleMapReact
             bootstrapURLKeys={{
-              key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
+              key: process.env.NEXT_PUBLIC_GOOGLE_MAP_API_KEY ?? "",
             }}
             defaultCenter={props.center}
             defaultZoom={14}
             onGoogleApiLoaded={handleApiLoaded}
+            yesIWantToUseGoogleMapApiInternals
           />
         </div>
       </div>
@@ -91,4 +96,3 @@ const MapModal = (props: ModalProps) => {
 };
 
 export default MapModal;
-
