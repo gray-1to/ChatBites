@@ -7,9 +7,10 @@ export default function HomePage() {
       <section className="snap-start min-h-screen flex flex-col justify-center items-center bg-gradient-to-b from-blue-500 to-blue-400 text-center">
         <h1 className="text-6xl font-bold text-white mb-4">ChatBites</h1>
         <p className="text-2xl text-gray-200">もう飲食店検索に悩まない</p>
-        <a href="/talk/generate">
+        <a href="/">
           <button className="mt-6 px-10 py-5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
             利用を始める　無料
+            (2024/11/14現在モデルアクセス数制限により利用を一時停止中)
           </button>
         </a>
         <p className="mt-[50px] text-xl text-gray-200">下へスクロール</p>
@@ -47,8 +48,9 @@ export default function HomePage() {
       {/* 対話ページへのリンク */}
       <div className="snap-start">
         <section className=" min-h-screen flex justify-center items-center bg-gradient-to-t from-blue-500 to-blue-400">
-          <a href="/talk/generate" className="text-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 px-10 py-5 rounded-lg shadow-lg">
+          <a href="/" className="text-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 px-10 py-5 rounded-lg shadow-lg">
             AIと対話を始める
+            (2024/11/14現在モデルアクセス数制限により利用を一時停止中)
           </a>
         </section>
 
