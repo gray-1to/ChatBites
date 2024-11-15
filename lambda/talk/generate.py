@@ -6,7 +6,7 @@ import time
 import os
 from boto3.dynamodb.conditions import Key
 
-EXEC_UPPER_LIMIT = 2
+EXEC_UPPER_LIMIT = 10
 dynamodb = boto3.client("dynamodb")
 s3 = boto3.client("s3")
 DEMO_USERID = os.environ["DEMO_USERID"]
@@ -160,7 +160,9 @@ def lambda_handler(event, context):
 
     # bedrock
     bedrock_runtime = boto3.client(
-        service_name="bedrock-runtime", region_name="ap-northeast-1"
+        # TODO: fix region
+        # service_name="bedrock-runtime", region_name="ap-northeast-1"
+        service_name="bedrock-runtime", region_name="us-east-1"
     )
 
     model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"

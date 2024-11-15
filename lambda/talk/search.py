@@ -9,7 +9,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 
-EXEC_UPPER_LIMIT = 2
+EXEC_UPPER_LIMIT = 10
 dynamodb = boto3.client("dynamodb")
 s3 = boto3.client("s3")
 GOOGLE_MAP_API_KEY = os.environ["GOOGLE_MAP_API_KEY"]
@@ -109,6 +109,7 @@ def get_lat_lon(location):
         res = requests.post(url, headers=headers, data=query)
     except Exception as e:
         raise e
+    print("res in get_lat_lon", res.json())
     place = res.json()["places"][0]
     return (place["location"]["latitude"], place["location"]["longitude"])
 
@@ -117,7 +118,9 @@ def get_restaurant_categories(food):
     print("food in get_restaurant_categories", food)
     # bedrock
     bedrock_runtime = boto3.client(
-        service_name="bedrock-runtime", region_name="ap-northeast-1"
+        # TODO: fix region
+        # service_name="bedrock-runtime", region_name="ap-northeast-1"
+        service_name="bedrock-runtime", region_name="us-east-1"
     )
 
     model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
@@ -225,7 +228,9 @@ def get_condition_from_messages(messages):
     # 対話からレストランに求める条件をLLMで出力
     # bedrock
     bedrock_runtime = boto3.client(
-        service_name="bedrock-runtime", region_name="ap-northeast-1"
+        # TODO: fix region
+        # service_name="bedrock-runtime", region_name="ap-northeast-1"
+        service_name="bedrock-runtime", region_name="us-east-1"
     )
 
     model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
@@ -276,7 +281,9 @@ def get_condition_from_messages(messages):
 def ask_llm(restaurant_info, needs):
     # bedrock
     bedrock_runtime = boto3.client(
-        service_name="bedrock-runtime", region_name="ap-northeast-1"
+        # TODO: fix region
+        # service_name="bedrock-runtime", region_name="ap-northeast-1"
+        service_name="bedrock-runtime", region_name="us-east-1"
     )
 
     model_id = "anthropic.claude-3-5-sonnet-20240620-v1:0"
@@ -407,9 +414,9 @@ def lambda_handler(event, context):
         miss_fields.append("messages")
     if location is None:
         miss_fields.append("location")
-    if location is None:
+    if locationLatLng is None:
         miss_fields.append("locationLatLng")
-    if location is None:
+    if isCurrentLocationLatLng is None:
         miss_fields.append("isCurrentLocationLatLng")
     if food is None:
         miss_fields.append("food")
