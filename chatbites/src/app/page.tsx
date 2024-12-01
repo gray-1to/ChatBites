@@ -15,6 +15,7 @@ export default function HomePage() {
               (2024/11/14現在モデルアクセス数制限により利用を一時停止中)
             </button>
           </a>
+          <a href="https://github.com/gray-1to/ChatBites" className="mt-[50px] text-xl text-gray-200 hover:text-gray-700 underline">Githubリポジトリはこちら</a>
           <p className="mt-[50px] text-xl text-gray-200">下へスクロール</p>
         </div>
 
