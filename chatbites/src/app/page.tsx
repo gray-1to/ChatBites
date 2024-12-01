@@ -3,18 +3,35 @@
 export default function HomePage() {
   return (
     <div className="snap-y snap-mandatory h-screen overflow-y-scroll">
-      {/* ヘッダー */}
-      <section className="snap-start min-h-screen flex flex-col justify-center items-center bg-gradient-to-b from-blue-500 to-blue-400 text-center">
-        <h1 className="text-6xl font-bold text-white mb-4">ChatBites</h1>
-        <p className="text-2xl text-gray-200">もう飲食店検索に悩まない</p>
-        <a href="/">
-          <button className="mt-6 px-10 py-5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
-            利用を始める　無料
-            (2024/11/14現在モデルアクセス数制限により利用を一時停止中)
-          </button>
-        </a>
-        <p className="mt-[50px] text-xl text-gray-200">下へスクロール</p>
+      <section className="snap-start min-h-screen flex flex-col lg:flex-row justify-center items-center bg-gradient-to-b from-blue-500 to-blue-400 text-center">
+        {/* 左側のコンテンツ */}
+        <div className="lg:w-1/2 flex flex-col justify-center items-center p-6">
+          <h1 className="text-6xl font-bold text-white mb-4">ChatBites</h1>
+          <p className="text-2xl text-gray-200">もう飲食店検索に悩まない</p>
+          <a href="/">
+            <button className="mt-6 px-10 py-5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition">
+              利用を始める　無料
+              <br />
+              (2024/11/14現在モデルアクセス数制限により利用を一時停止中)
+            </button>
+          </a>
+          <a href="https://github.com/gray-1to/ChatBites" className="mt-[50px] text-xl text-gray-200 hover:text-gray-700 underline">Githubリポジトリはこちら</a>
+          <p className="mt-[50px] text-xl text-gray-200">下へスクロール</p>
+        </div>
+
+        {/* 右側の実行画面 */}
+        <div className="flex justify-center items-center p-6">
+          <div className=" bg-white shadow-lg rounded-lg">
+            {/* 実行画面の内容をここに追加 */}
+            <img
+              src="/exec-example.png"
+              title="実行画面"
+              className="w-full h-full rounded-lg"
+            ></img>
+          </div>
+        </div>
       </section>
+
 
       {/* 困りごと */}
       <section className="snap-start min-h-screen flex flex-col justify-center items-center bg-gray-100 text-center">
