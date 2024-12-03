@@ -24,7 +24,7 @@ LLMに対話形式でニーズを伝えることで、指定した場所、カ�
 LLMが自動でおすすめをピックアップしてくれるため、ユーザーは多くの検索結果を見る必要がなくなる。
 
 ## アーキテクチャ
-![architecture](/public/architecture.png)
+![architecture](public/architecture.png)
 
 ## ディレクトリ構成
 ```
